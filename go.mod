@@ -3,18 +3,17 @@ module github.com/yukinagae/genkit-go-plugins
 go 1.23.0
 
 require (
+	github.com/anthropics/anthropic-sdk-go v0.2.0-alpha.4
 	github.com/firebase/genkit/go v0.1.1
 	github.com/openai/openai-go v0.1.0-alpha.13
 )
 
 require (
-	github.com/anthropics/anthropic-sdk-go v0.2.0-alpha.4 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/invopop/jsonschema v0.12.0 // indirect
-	github.com/liushuangls/go-anthropic/v2 v2.9.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect

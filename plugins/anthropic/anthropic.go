@@ -27,8 +27,8 @@ var state struct {
 
 type GenerationAnthropicConfig struct {
 	ai.GenerationCommonConfig
-	ToolChoiceParam anthropic.ToolChoiceUnionParam
-	Metadata        anthropic.MetadataParam
+	ToolChoiceParam *anthropic.ToolChoiceUnionParam
+	Metadata        *anthropic.MetadataParam
 }
 
 var (
@@ -40,6 +40,14 @@ var (
 		anthropic.ModelClaude_3_Opus_20240229:   Multimodal,
 	}
 )
+
+var maxModelTokens = map[string]int{
+	anthropic.ModelClaude3_5Haiku20241022:   8192,
+	anthropic.ModelClaude3_5Sonnet20241022:  8192,
+	anthropic.ModelClaude_3_Haiku_20240307:  4096,
+	anthropic.ModelClaude_3_Sonnet_20240229: 4096,
+	anthropic.ModelClaude_3_Opus_20240229:   4096,
+}
 
 type Config struct {
 	APIKey string
@@ -162,21 +170,47 @@ func convertRequest(model string, input *ai.GenerateRequest) (anthropic.MessageN
 	}
 
 	if c, ok := input.Config.(*ai.GenerationCommonConfig); ok && c != nil {
-		params.MaxTokens = anthropic.F(int64(c.MaxOutputTokens))
-		params.TopK = anthropic.F(int64(c.TopK))
-		params.TopP = anthropic.F(c.TopP)
-		params.Temperature = anthropic.F(c.Temperature)
-		params.StopSequences = anthropic.F(c.StopSequences)
+		if c.MaxOutputTokens != 0 {
+			params.MaxTokens = anthropic.F(int64(c.MaxOutputTokens))
+		} else {
+			params.MaxTokens = anthropic.Raw[int64](maxModelTokens[model])
+		}
+		if c.TopK != 0 {
+			params.TopK = anthropic.F(int64(c.TopK))
+		}
+		if c.TopP != 0 {
+			params.TopP = anthropic.F(c.TopP)
+		}
+		if c.Temperature != 0 {
+			params.Temperature = anthropic.F(c.Temperature)
+		}
+		if len(c.StopSequences) > 0 {
+			params.StopSequences = anthropic.F(c.StopSequences)
+		}
 	}
 
 	if c, ok := input.Config.(*GenerationAnthropicConfig); ok && c != nil {
-		params.MaxTokens = anthropic.F(int64(c.MaxOutputTokens))
-		params.TopK = anthropic.F(int64(c.TopK))
-		params.TopP = anthropic.F(c.TopP)
-		params.Temperature = anthropic.F(c.Temperature)
-		params.StopSequences = anthropic.F(c.StopSequences)
-		params.ToolChoice = anthropic.F(c.ToolChoiceParam)
-		params.Metadata = anthropic.F(c.Metadata)
+		if c.MaxOutputTokens != 0 {
+			params.MaxTokens = anthropic.F(int64(c.MaxOutputTokens))
+		}
+		if c.TopK != 0 {
+			params.TopK = anthropic.F(int64(c.TopK))
+		}
+		if c.TopP != 0 {
+			params.TopP = anthropic.F(c.TopP)
+		}
+		if c.Temperature != 0 {
+			params.Temperature = anthropic.F(c.Temperature)
+		}
+		if len(c.StopSequences) > 0 {
+			params.StopSequences = anthropic.F(c.StopSequences)
+		}
+		if c.ToolChoiceParam != nil {
+			params.ToolChoice = anthropic.F(*c.ToolChoiceParam)
+		}
+		if c.Metadata != nil {
+			params.Metadata = anthropic.F(*c.Metadata)
+		}
 	}
 
 	return params, nil
@@ -188,10 +222,18 @@ func convertMessages(messages []*ai.Message) ([]anthropic.TextBlockParam, []anth
 
 	for _, msg := range messages {
 		var content = []anthropic.MessageParamContentUnion{}
+		role, err := convertRole(msg.Role)
+		if err != nil {
+			return nil, nil, err
+		}
 		for _, part := range msg.Content {
 			switch part.Kind {
 			case ai.PartText:
-				content = append(content, anthropic.NewTextBlock(part.Text))
+				if msg.Role == ai.RoleSystem {
+					system = append(system, anthropic.NewTextBlock(part.Text))
+				} else {
+					content = append(content, anthropic.NewTextBlock(part.Text))
+				}
 			case ai.PartMedia:
 				content = append(content, anthropic.NewImageBlockBase64(part.ContentType, part.Text))
 			case ai.PartToolRequest:
@@ -209,6 +251,13 @@ func convertMessages(messages []*ai.Message) ([]anthropic.TextBlockParam, []anth
 			default:
 				return nil, nil, fmt.Errorf("unsupported message part kind %q", part.Kind)
 			}
+		}
+
+		if msg.Role != ai.RoleSystem {
+			user = append(user, anthropic.MessageParam{
+				Role:    anthropic.F(role),
+				Content: anthropic.F(content),
+			})
 		}
 	}
 	return system, user, nil
